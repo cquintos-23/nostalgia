@@ -1314,19 +1314,49 @@ function captureOrbDataURL() {
   return cropped.toDataURL('image/png');
 }
 
-// ── JSONBin config ─────────────────────────────────────────────────────────
-// Free shared bin — stores all orbs as an array
-// Bin ID and key are public read/write for this project
-const JSONBIN_BIN_ID = '683e8f4d8960c979a5a3b1b3';
-const JSONBIN_API_KEY = '$2a$10$placeholder_will_be_created';
-const JSONBIN_BASE = 'https://api.jsonbin.io/v3';
+// ── Cloudinary config ──────────────────────────────────────────────────────
+const CLOUDINARY_CLOUD  = 'djz5xvmvc';
+const CLOUDINARY_PRESET = 'nostalgia_orb';
 
-// ── localStorage fallback (works offline / same device) ───────────────────
-function lsGetOrbs() {
-  try { return JSON.parse(localStorage.getItem('nostalgia_orbs') || '[]'); } catch(e) { return []; }
+async function uploadToCloudinary(dataURL) {
+  const formData = new FormData();
+  formData.append('file', dataURL);
+  formData.append('upload_preset', CLOUDINARY_PRESET);
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/image/upload`, {
+    method: 'POST',
+    body: formData
+  });
+  const json = await res.json();
+  if (!json.secure_url) throw new Error('Cloudinary upload failed');
+  return json.secure_url;
 }
-function lsSaveOrbs(orbs) {
-  try { localStorage.setItem('nostalgia_orbs', JSON.stringify(orbs)); } catch(e) {}
+
+// ── JSONBin config ─────────────────────────────────────────────────────────
+const JSONBIN_BIN_ID  = '69d5aac736566621a88c13dc';
+const JSONBIN_API_KEY = '$2a$10$TCYMQdQpQsgqtFi2kWkVHONprxoVzy141Iq3678kQSzZ8tFvTwv.K';
+const JSONBIN_BASE    = 'https://api.jsonbin.io/v3';
+
+// ── Fetch all orbs from shared bin ────────────────────────────────────────
+async function fetchOrbs() {
+  const res = await fetch(`${JSONBIN_BASE}/b/${JSONBIN_BIN_ID}/latest`, {
+    headers: { 'X-Master-Key': JSONBIN_API_KEY }
+  });
+  const json = await res.json();
+  return Array.isArray(json.record)
+    ? json.record.filter(o => o.imgUrl && o.ts > 0)
+    : [];
+}
+
+// ── Save updated orbs array back to bin ───────────────────────────────────
+async function saveOrbs(orbs) {
+  await fetch(`${JSONBIN_BASE}/b/${JSONBIN_BIN_ID}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Master-Key': JSONBIN_API_KEY
+    },
+    body: JSON.stringify(orbs)
+  });
 }
 
 // ── Add to database ────────────────────────────────────────────────────────
@@ -1335,23 +1365,30 @@ async function addToDatabase() {
 
   const btn = document.getElementById('add-db-btn');
   btn.disabled = true;
-  btn.textContent = 'saving…';
+  btn.textContent = 'uploading image…';
 
   const emotion = document.getElementById('filter-select').value || null;
-  const year = document.getElementById('meta-year').value || null;
-  const place = document.getElementById('meta-place').value || null;
-  const desc = document.getElementById('meta-desc').value.trim() || null;
-  const imgData = captureOrbDataURL();
-  const id = 'orb_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
-  const entry = { id, imgData, emotion, year, place, desc, ts: Date.now() };
+  const year    = document.getElementById('meta-year').value || null;
+  const place   = document.getElementById('meta-place').value || null;
+  const desc    = document.getElementById('meta-desc').value.trim() || null;
+  const id      = 'orb_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
 
-  // Always save to localStorage as the source of truth
-  const orbs = lsGetOrbs();
-  orbs.push(entry);
-  lsSaveOrbs(orbs);
-
-  showToast('memory added to the nostalgia database ✦');
-  btn.textContent = 'added ✦';
+  try {
+    const dataURL = captureOrbDataURL();
+    btn.textContent = 'saving…';
+    const imgUrl = await uploadToCloudinary(dataURL);
+    const entry  = { id, imgUrl, emotion, year, place, desc, ts: Date.now() };
+    const orbs   = await fetchOrbs();
+    orbs.push(entry);
+    await saveOrbs(orbs);
+    showToast('memory added to the nostalgia database ✦');
+    btn.textContent = 'added ✦';
+  } catch(e) {
+    showToast('error saving — try again');
+    btn.textContent = 'add to nostalgia database';
+    btn.disabled = false;
+    return;
+  }
   setTimeout(() => { btn.disabled = false; btn.textContent = 'add to nostalgia database'; }, 3000);
 }
 
@@ -1410,7 +1447,7 @@ function renderOrbElements() {
     el.style.height = SIZE + 'px';
 
     const img = document.createElement('img');
-    img.src = orb.imgData;
+    img.src = orb.imgUrl;
     el.appendChild(img);
 
     const margin = SIZE * 0.7;
@@ -1547,17 +1584,22 @@ function hideOrbTooltip() {
 }
 
 async function loadAndRenderGallery() {
-  allOrbs = lsGetOrbs();
+  document.getElementById('gallery-count').textContent = 'loading…';
+  try {
+    allOrbs = await fetchOrbs();
+  } catch(e) {
+    allOrbs = [];
+    showToast('could not load memories — check connection');
+  }
   panX = 0; panY = 0; scale = 1;
   applyStageTransform();
   applyGalleryFilters();
 }
 
-// Auto-navigate to gallery view if URL param or localStorage flag is set
+// Auto-navigate to gallery view if URL param is set
 (function() {
   const params = new URLSearchParams(window.location.search);
-  if (params.get('view') === 'gallery' || localStorage.getItem('nostalgia_open_view') === 'gallery') {
-    localStorage.removeItem('nostalgia_open_view');
+  if (params.get('view') === 'gallery') {
     window.addEventListener('DOMContentLoaded', () => { setTimeout(() => switchView('gallery'), 100); });
   }
 })();
