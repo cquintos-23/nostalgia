@@ -201,9 +201,63 @@
     font-size: 12px;
     font-weight: 500;
   }
+
+  /* ── MOBILE OVERLAY ── */
+  #mobile-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: var(--bg);
+    background-image: var(--tile);
+    background-repeat: repeat;
+    background-size: 200px 200px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    padding: 40px;
+    text-align: center;
+    font-family: var(--font);
+  }
+  @media (max-width: 900px) {
+    #mobile-overlay { display: flex; }
+  }
+  #mobile-overlay svg.mobile-icon {
+    width: 48px;
+    height: 48px;
+    opacity: 0.4;
+    color: #E2E2E2;
+  }
+  #mobile-overlay h2 {
+    font-size: 18px;
+    font-weight: 700;
+    color: #E2E2E2;
+    letter-spacing: -0.02em;
+  }
+  #mobile-overlay p {
+    font-size: 13px;
+    color: rgba(226,226,226,0.5);
+    line-height: 1.6;
+    max-width: 280px;
+    letter-spacing: -0.01em;
+  }
 </style>
 </head>
 <body>
+
+<!-- MOBILE OVERLAY -->
+<div id="mobile-overlay">
+  <svg class="mobile-icon" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="14" y="4" width="20" height="32" rx="3" stroke="currentColor" stroke-width="2"/>
+    <circle cx="24" cy="31" r="1.5" fill="currentColor"/>
+    <path d="M6 18h8M34 18h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    <path d="M38 14l4 4-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M10 14L6 18l4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+  <h2>Best viewed on desktop</h2>
+  <p>This interactive interface is designed for larger screens. Please open it on a desktop or laptop for the full experience.</p>
+</div>
 
 <!-- ══════════════════════════════════════════════════════
      HOME SCREEN
